@@ -56,8 +56,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
     if not has_access(user_id):
-    await update.message.reply_text("У тебя нет доступа.")
-    return
+        await update.message.reply_text("У тебя нет доступа.")
+        return
 
     if chat.type != "private":
         await update.message.reply_text("Бот работает ✅")

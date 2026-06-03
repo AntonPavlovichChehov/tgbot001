@@ -3,7 +3,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 import json
 import os
 
-TOKEN = "8211178139:AAGbNi2NXbiiS8q4glXmuUmRc3Hg1DymWeM"
+TOKEN = "8211178139:AAG1niMdrR8-Y91i_GBGYMREofC6zzOfet4"
 
 ADMIN_IDS = [
     8028254082,

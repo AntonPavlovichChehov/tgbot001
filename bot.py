@@ -191,16 +191,16 @@ app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("addgroup", add_group))
 app.add_handler(CommandHandler("removegroup", remove_group))
 app.add_handler(CommandHandler("groups", groups_count))
+app.add_handler(CommandHandler("broadcast", broadcast))
 
 app.add_handler(
     ChatMemberHandler(
         check_group_access,
         ChatMemberHandler.MY_CHAT_MEMBER
     )
-)    app.add_handler(CommandHandler("broadcast", broadcast))
+)
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_private_message))
-
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_private_message))
     print("Бот запущен...")
     app.run_polling()
 

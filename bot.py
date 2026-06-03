@@ -1,5 +1,5 @@
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters, ChatMemberHandler
 import json
 import os
 
@@ -8,7 +8,8 @@ TOKEN = "8211178139:AAG1niMdrR8-Y91i_GBGYMREofC6zzOfet4"
 ADMIN_IDS = [
     8028254082,
     8285874260,
-    75558139187,
+    8337162707,
+    7558139187,
     7570116797
 ]
 
@@ -39,6 +40,9 @@ groups = load_groups()
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
+def has_access(user_id):
+    return is_admin(user_id)
+
 
 def main_keyboard():
     return ReplyKeyboardMarkup(
@@ -49,7 +53,9 @@ def main_keyboard():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
-    user_id = update.effective_user.id
+    user_id = if not has_access(user_id):
+        await update.message.reply_text("У тебя нет доступа.")
+        return
 
     if chat.type != "private":
         await update.message.reply_text("Бот работает ✅")
@@ -67,6 +73,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def add_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
+    user_id = update.effective_user.id
+
+    if not has_access(user_id):
+        await update.message.reply_text("У тебя нет доступа.")
+        return
 
     if chat.type not in ["group", "supergroup"]:
         await update.message.reply_text("Эту команду нужно писать в группе.")
@@ -76,8 +87,33 @@ async def add_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_groups(groups)
 
     await update.message.reply_text("Группа добавлена ✅")
+async def remove_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    user_id = update.effective_user.id
 
+    if not has_access(user_id):
+        await update.message.reply_text("У тебя нет доступа.")
+        return
 
+    if chat.type not in ["group", "supergroup"]:
+        await update.message.reply_text("Эту команду нужно писать в группе.")
+        return
+
+    if chat.id in groups:
+        groups.remove(chat.id)
+        save_groups(groups)
+        await update.message.reply_text("Группа удалена из рассылки ✅")
+    else:
+        await update.message.reply_text("Этой группы нет в списке рассылки.")
+async def check_group_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.my_chat_member:
+        return
+
+    chat = update.effective_chat
+    user = update.my_chat_member.from_user
+
+    if not is_admin(user.id):
+        await context.bot.leave_chat(chat.id)
 async def groups_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
@@ -149,10 +185,17 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("addgroup", add_group))
-    app.add_handler(CommandHandler("groups", groups_count))
-    app.add_handler(CommandHandler("broadcast", broadcast))
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("addgroup", add_group))
+app.add_handler(CommandHandler("removegroup", remove_group))
+app.add_handler(CommandHandler("groups", groups_count))
+
+app.add_handler(
+    ChatMemberHandler(
+        check_group_access,
+        ChatMemberHandler.MY_CHAT_MEMBER
+    )
+)    app.add_handler(CommandHandler("broadcast", broadcast))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_private_message))
 

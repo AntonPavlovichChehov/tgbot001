@@ -14,7 +14,7 @@ ADMIN_IDS = [
     7570116797
 ]
 
-GROUPS_FILE = "groups.json"
+GROUPS_FILE = "/data/groups.json"
 
 BTN_BROADCAST = "📢 Отправить рассылку"
 

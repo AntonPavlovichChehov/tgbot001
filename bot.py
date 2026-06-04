@@ -150,18 +150,35 @@ async def send_broadcast(context: ContextTypes.DEFAULT_TYPE, user_id: int, from_
     success = 0
     failed = 0
 
+    try:
+        msg = await context.bot.forward_message(
+            chat_id=user_id,
+            from_chat_id=from_chat_id,
+            message_id=message_id
+        )
+        await context.bot.delete_message(chat_id=user_id, message_id=msg.message_id)
+    except Exception:
+        msg = None
+
     for group_id in groups:
         try:
-            await context.bot.copy_message(
-                chat_id=group_id,
-                from_chat_id=from_chat_id,
-                message_id=message_id
-            )
+            original_message = pending_messages.get(user_id)
 
-            if BROADCAST_FOOTER.strip():
+            if original_message and original_message.text:
+                final_text = original_message.text
+
+                if BROADCAST_FOOTER.strip():
+                    final_text = f"{final_text}\n\n{BROADCAST_FOOTER.strip()}"
+
                 await context.bot.send_message(
                     chat_id=group_id,
-                    text=BROADCAST_FOOTER
+                    text=final_text
+                )
+            else:
+                await context.bot.copy_message(
+                    chat_id=group_id,
+                    from_chat_id=from_chat_id,
+                    message_id=message_id
                 )
 
             success += 1
@@ -174,7 +191,6 @@ async def send_broadcast(context: ContextTypes.DEFAULT_TYPE, user_id: int, from_
         text=f"Рассылка отправлена ✅\nОтправлено: {success}\nОшибок: {failed}",
         reply_markup=main_keyboard()
     )
-
 
 async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":

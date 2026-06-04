@@ -3,7 +3,9 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 import json
 import os
 
-TOKEN = "8211178139:AAG1niMdrR8-Y91i_GBGYMREofC6zzOfet4"
+import os
+
+TOKEN = os.getenv("BOT_TOKEN")
 
 ADMIN_IDS = [
     8028254082,
@@ -17,7 +19,12 @@ ADMIN_IDS = [
 GROUPS_FILE = "/data/groups.json"
 
 BTN_BROADCAST = "📢 Отправить рассылку"
+BROADCAST_FOOTER = """
 
+Курс?
+%?
+
+"""
 user_states = {}
 pending_messages = {}
 
@@ -127,6 +134,17 @@ async def groups_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"Сохранено групп: {len(groups)}")
 
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+
+    await update.message.reply_text(
+        f"📊 Статистика\n\n"
+        f"👥 Групп в рассылке: {len(groups)}\n"
+        f"👤 Админов: {len(ADMIN_IDS)}\n"
+        f"💾 Файл групп: {GROUPS_FILE}"
+    )
+
 
 async def send_broadcast(context: ContextTypes.DEFAULT_TYPE, user_id: int, from_chat_id: int, message_id: int):
     success = 0
@@ -139,7 +157,15 @@ async def send_broadcast(context: ContextTypes.DEFAULT_TYPE, user_id: int, from_
                 from_chat_id=from_chat_id,
                 message_id=message_id
             )
+
+            if BROADCAST_FOOTER.strip():
+                await context.bot.send_message(
+                    chat_id=group_id,
+                    text=BROADCAST_FOOTER
+                )
+
             success += 1
+
         except Exception:
             failed += 1
 
@@ -221,6 +247,7 @@ def main():
     app.add_handler(CommandHandler("addgroup", add_group))
     app.add_handler(CommandHandler("removegroup", remove_group))
     app.add_handler(CommandHandler("groups", groups_count))
+    app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("broadcast", broadcast))
 
     app.add_handler(

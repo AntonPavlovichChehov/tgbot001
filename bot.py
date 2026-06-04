@@ -145,27 +145,14 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💾 Файл групп: {GROUPS_FILE}"
     )
 
-
-async def send_broadcast(context: ContextTypes.DEFAULT_TYPE, user_id: int, from_chat_id: int, message_id: int):
+async def send_broadcast(context: ContextTypes.DEFAULT_TYPE, user_id: int, from_chat_id: int, message_id: int, text=None):
     success = 0
     failed = 0
 
-    try:
-        msg = await context.bot.forward_message(
-            chat_id=user_id,
-            from_chat_id=from_chat_id,
-            message_id=message_id
-        )
-        await context.bot.delete_message(chat_id=user_id, message_id=msg.message_id)
-    except Exception:
-        msg = None
-
     for group_id in groups:
         try:
-            original_message = pending_messages.get(user_id)
-
-            if original_message and original_message.text:
-                final_text = original_message.text
+            if text:
+                final_text = text
 
                 if BROADCAST_FOOTER.strip():
                     final_text = f"{final_text}\n\n{BROADCAST_FOOTER.strip()}"
@@ -216,10 +203,11 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("Отправляю рассылку...")
 
         await send_broadcast(
-            context=context,
-            user_id=user_id,
-            from_chat_id=update.effective_chat.id,
-            message_id=update.message.message_id
+            context,
+            user_id,
+            update.effective_chat.id,
+            update.message.message_id,
+            text=update.message.text
         )
         return
 

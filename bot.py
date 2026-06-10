@@ -243,6 +243,23 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_keyboard()
     )
 
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+
+    await update.message.reply_text("🏓 Pong\nБот работает")
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+
+    text = (
+        f"📊 Статистика\n\n"
+        f"Групп в базе: {len(groups)}\n"
+        f"Админов: {len(ADMIN_IDS)}"
+    )
+
+    await update.message.reply_text(text)
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
@@ -253,6 +270,8 @@ def main():
     app.add_handler(CommandHandler("groups", groups_count))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("broadcast", broadcast))
+    app.add_handler(CommandHandler("ping", ping))
+    app.add_handler(CommandHandler("stats", stats))
 
     app.add_handler(
         ChatMemberHandler(

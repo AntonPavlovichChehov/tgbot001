@@ -283,8 +283,60 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
-app.add_handler(CommandHandler("add", add_balance))
-app.add_handler(CommandHandler("sub", sub_balance))
+async def change_balance(update: Update, context: ContextTypes.DEFAULT_TYPE, sign: int):
+    if update.effective_chat.type not in ["group", "supergroup"]:
+        return
+
+    if not is_admin(update.effective_user.id):
+        return
+
+    if not context.args:
+        return
+
+    amount_text = context.args[0].replace(",", ".")
+
+    try:
+        amount = float(amount_text)
+    except ValueError:
+        return
+
+    amount = amount * sign
+    comment = " ".join(context.args[1:]) or "Без комментария"
+
+    chat_id = str(update.effective_chat.id)
+
+    if chat_id not in balances:
+        balances[chat_id] = {
+            "balance": 0,
+            "history": []
+        }
+
+    balances[chat_id]["balance"] += amount
+    balances[chat_id]["history"].append({
+        "amount": amount,
+        "comment": comment,
+        "user": update.effective_user.id,
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+    })
+
+    balances[chat_id]["history"] = balances[chat_id]["history"][-100:]
+
+    save_balance(balances)
+
+    await update.message.reply_text(
+        f"✅ Операция сохранена\n\n"
+        f"{'➕' if amount > 0 else '➖'} {fmt_amount(abs(amount))}\n"
+        f"📝 {comment}\n\n"
+        f"💰 Баланс: {fmt_amount(balances[chat_id]['balance'])}"
+    )
+
+
+async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await change_balance(update, context, 1)
+
+
+async def sub_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await change_balance(update, context, -1)
 
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type not in ["group", "supergroup"]:

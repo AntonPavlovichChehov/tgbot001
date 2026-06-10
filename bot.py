@@ -295,7 +295,7 @@ async def balance_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     command = parts[0]
     comment = parts[1] if len(parts) > 1 else "Без комментария"
 
-    match = re.match(r"^/([+-])(\d+(?:[.,]\d+)?)$", command)
+    match = re.match(r"^/([+-])(\d+(?:[.,]\d+)?)(?:@\w+)?$", command)
     if not match:
         return
 
@@ -432,7 +432,8 @@ def main():
     app.add_handler(CommandHandler("report", report))
     app.add_handler(CommandHandler("clearbalance", clearbalance))
 
-    app.add_handler(MessageHandler(filters.COMMAND, balance_text))
+    app.add_handler(CommandHandler("+", balance_text))
+    app.add_handler(CommandHandler("-", balance_text))
 
     app.add_handler(
         MessageHandler(

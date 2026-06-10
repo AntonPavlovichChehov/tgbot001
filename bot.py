@@ -292,7 +292,7 @@ async def balance_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = update.message.text.strip()
 
-    match = re.match(r"^\$([+-])(\d+(?:[.,]\d+)?)(?:\s+(.*))?$", text)
+    match = re.match(r"^\$([+-])\s*(\d+(?:[.,]\d+)?)(?:\s*:?\s*(.*))?$", text)
     if not match:
         return
 
@@ -431,7 +431,7 @@ def main():
     app.add_handler(CommandHandler("report", report))
     app.add_handler(CommandHandler("clearbalance", clearbalance))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, balance_text))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^\$[+-]") & ~filters.COMMAND, balance_text))
     app.add_handler(
         MessageHandler(
             filters.ALL & ~filters.COMMAND,

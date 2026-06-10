@@ -296,9 +296,9 @@ parts = text.split(maxsplit=1)
 command = parts[0]
 comment = parts[1] if len(parts) > 1 else "Без комментария"
 
-match = re.match(r"^/([+-])(\d+(?:[.,]\d+)?)$", command)
-if not match:
-    return
+    match = re.match(r"^/([+-])(\d+(?:[.,]\d+)?)$", command)
+    if not match:
+        return
 
     sign = match.group(1)
     amount = float(match.group(2).replace(",", "."))

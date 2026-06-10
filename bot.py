@@ -283,54 +283,8 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
-async def balance_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type not in ["group", "supergroup"]:
-        return
-
-    if not is_admin(update.effective_user.id):
-        return
-
-    text = update.message.text.strip()
-    parts = text.split(maxsplit=1)
-    command = parts[0]
-    comment = parts[1] if len(parts) > 1 else "Без комментария"
-
-    match = re.match(r"^/([+-])(\d+(?:[.,]\d+)?)(?:@\w+)?$", command)
-    if not match:
-        return
-
-    sign = match.group(1)
-    amount = float(match.group(2).replace(",", "."))
-
-    if sign == "-":
-        amount = -amount
-
-    chat_id = str(update.effective_chat.id)
-
-    if chat_id not in balances:
-        balances[chat_id] = {
-            "balance": 0,
-            "history": []
-        }
-
-    balances[chat_id]["balance"] += amount
-    balances[chat_id]["history"].append({
-        "amount": amount,
-        "comment": comment,
-        "user": update.effective_user.id,
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M")
-    })
-
-    balances[chat_id]["history"] = balances[chat_id]["history"][-100:]
-
-    save_balance(balances)
-
-    await update.message.reply_text(
-        f"✅ Операция сохранена\n\n"
-        f"{'➕' if amount > 0 else '➖'} {fmt_amount(abs(amount))}\n"
-        f"📝 {comment}\n\n"
-        f"💰 Баланс: {fmt_amount(balances[chat_id]['balance'])}"
-    )
+app.add_handler(CommandHandler("add", add_balance))
+app.add_handler(CommandHandler("sub", sub_balance))
 
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type not in ["group", "supergroup"]:
@@ -432,8 +386,8 @@ def main():
     app.add_handler(CommandHandler("report", report))
     app.add_handler(CommandHandler("clearbalance", clearbalance))
 
-    app.add_handler(CommandHandler("+", balance_text))
-    app.add_handler(CommandHandler("-", balance_text))
+    app.add_handler(CommandHandler("add", add_balance))
+    app.add_handler(CommandHandler("sub", sub_balance))
 
     app.add_handler(
         MessageHandler(

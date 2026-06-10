@@ -290,11 +290,10 @@ async def balance_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
 
-text = update.message.text.strip()
-
-parts = text.split(maxsplit=1)
-command = parts[0]
-comment = parts[1] if len(parts) > 1 else "Без комментария"
+    text = update.message.text.strip()
+    parts = text.split(maxsplit=1)
+    command = parts[0]
+    comment = parts[1] if len(parts) > 1 else "Без комментария"
 
     match = re.match(r"^/([+-])(\d+(?:[.,]\d+)?)$", command)
     if not match:
@@ -332,7 +331,6 @@ comment = parts[1] if len(parts) > 1 else "Без комментария"
         f"📝 {comment}\n\n"
         f"💰 Баланс: {fmt_amount(balances[chat_id]['balance'])}"
     )
-
 
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type not in ["group", "supergroup"]:

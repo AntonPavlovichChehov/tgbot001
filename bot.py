@@ -1,3 +1,5 @@
+import re
+from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters, ChatMemberHandler
 import json
@@ -17,6 +19,7 @@ ADMIN_IDS = [
 ]
 
 GROUPS_FILE = "/data/groups.json"
+BALANCE_FILE = "/data/balance.json"
 
 BTN_BROADCAST = "📢 Отправить рассылку"
 BROADCAST_FOOTER = """
@@ -44,7 +47,26 @@ def save_groups(groups):
 
 
 groups = load_groups()
+def load_balance():
+    if not os.path.exists(BALANCE_FILE):
+        return {}
 
+    with open(BALANCE_FILE, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def save_balance(data):
+    with open(BALANCE_FILE, "w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=2)
+
+
+balances = load_balance()
+
+
+def fmt_amount(value):
+    if value == int(value):
+        return str(int(value))
+    return str(value)
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
@@ -261,6 +283,131 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
+async def balance_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type not in ["group", "supergroup"]:
+        return
+
+    if not is_admin(update.effective_user.id):
+        return
+
+    text = update.message.text.strip()
+
+    match = re.match(r"^\$([+-])(\d+(?:[.,]\d+)?)(?:\s+(.*))?$", text)
+    if not match:
+        return
+
+    sign = match.group(1)
+    amount = float(match.group(2).replace(",", "."))
+    comment = match.group(3) or "Без комментария"
+
+    if sign == "-":
+        amount = -amount
+
+    chat_id = str(update.effective_chat.id)
+
+    if chat_id not in balances:
+        balances[chat_id] = {
+            "balance": 0,
+            "history": []
+        }
+
+    balances[chat_id]["balance"] += amount
+    balances[chat_id]["history"].append({
+        "amount": amount,
+        "comment": comment,
+        "user": update.effective_user.id,
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+    })
+
+    balances[chat_id]["history"] = balances[chat_id]["history"][-100:]
+
+    save_balance(balances)
+
+    await update.message.reply_text(
+        f"✅ Операция сохранена\n\n"
+        f"{'➕' if amount > 0 else '➖'} {fmt_amount(abs(amount))}\n"
+        f"📝 {comment}\n\n"
+        f"💰 Баланс: {fmt_amount(balances[chat_id]['balance'])}"
+    )
+
+
+async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type not in ["group", "supergroup"]:
+        return
+
+    if not is_admin(update.effective_user.id):
+        return
+
+    chat_id = str(update.effective_chat.id)
+    balance_value = balances.get(chat_id, {}).get("balance", 0)
+
+    await update.message.reply_text(f"💰 Баланс группы: {fmt_amount(balance_value)}")
+
+
+async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type not in ["group", "supergroup"]:
+        return
+
+    if not is_admin(update.effective_user.id):
+        return
+
+    chat_id = str(update.effective_chat.id)
+    history_list = balances.get(chat_id, {}).get("history", [])[-10:]
+
+    if not history_list:
+        await update.message.reply_text("📋 История пустая.")
+        return
+
+    text = "📋 Последние операции:\n\n"
+
+    for item in history_list:
+        amount = item["amount"]
+        icon = "➕" if amount > 0 else "➖"
+        text += f"{icon} {fmt_amount(abs(amount))} — {item['comment']}\n"
+
+    await update.message.reply_text(text)
+
+
+async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type not in ["group", "supergroup"]:
+        return
+
+    if not is_admin(update.effective_user.id):
+        return
+
+    chat_id = str(update.effective_chat.id)
+    data = balances.get(chat_id, {"balance": 0, "history": []})
+
+    income = sum(x["amount"] for x in data["history"] if x["amount"] > 0)
+    expense = sum(abs(x["amount"]) for x in data["history"] if x["amount"] < 0)
+
+    await update.message.reply_text(
+        f"📊 Финансовый отчёт группы\n\n"
+        f"💰 Баланс: {fmt_amount(data['balance'])}\n"
+        f"➕ Поступления: {fmt_amount(income)}\n"
+        f"➖ Расходы: {fmt_amount(expense)}\n"
+        f"📋 Операций: {len(data['history'])}"
+    )
+
+
+async def clearbalance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type not in ["group", "supergroup"]:
+        return
+
+    if not is_admin(update.effective_user.id):
+        return
+
+    chat_id = str(update.effective_chat.id)
+
+    balances[chat_id] = {
+        "balance": 0,
+        "history": []
+    }
+
+    save_balance(balances)
+
+    await update.message.reply_text("🧹 Баланс и история группы очищены.")
+
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
@@ -268,7 +415,6 @@ def main():
     app.add_handler(CommandHandler("addgroup", add_group))
     app.add_handler(CommandHandler("removegroup", remove_group))
     app.add_handler(CommandHandler("groups", groups_count))
-    app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CommandHandler("ping", ping))
     app.add_handler(CommandHandler("stats", stats))
@@ -280,6 +426,12 @@ def main():
         )
     )
 
+    app.add_handler(CommandHandler("balance", balance))
+    app.add_handler(CommandHandler("history", history))
+    app.add_handler(CommandHandler("report", report))
+    app.add_handler(CommandHandler("clearbalance", clearbalance))
+
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, balance_text))
     app.add_handler(
         MessageHandler(
             filters.ALL & ~filters.COMMAND,

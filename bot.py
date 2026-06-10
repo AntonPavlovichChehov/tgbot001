@@ -300,8 +300,9 @@ match = re.match(r"^/([+-])(\d+(?:[.,]\d+)?)$", command)
 if not match:
     return
 
-sign = match.group(1)
-amount = float(match.group(2).replace(",", "."))
+    sign = match.group(1)
+    amount = float(match.group(2).replace(",", "."))
+
     if sign == "-":
         amount = -amount
 

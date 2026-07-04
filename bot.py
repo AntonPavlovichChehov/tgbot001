@@ -170,6 +170,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_broadcast(context: ContextTypes.DEFAULT_TYPE, user_id: int, from_chat_id: int, message_id: int, text=None):
     success = 0
     failed = 0
+    errors = []
 
     for group_id in groups:
         try:
@@ -192,12 +193,15 @@ async def send_broadcast(context: ContextTypes.DEFAULT_TYPE, user_id: int, from_
 
             success += 1
 
-        except Exception:
+        except Exception as e:
             failed += 1
+            errors.append(f"Группа {group_id}: {str(e)}")
 
+    error_text = "\n".join(errors) if errors else ""
+    
     await context.bot.send_message(
         chat_id=user_id,
-        text=f"Рассылка отправлена ✅\nОтправлено: {success}\nОшибок: {failed}",
+        text=f"Рассылка отправлена ✅\nОтправлено: {success}\nОшибок: {failed}\n\n{error_text}",
         reply_markup=main_keyboard()
     )
 
@@ -252,16 +256,20 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     success = 0
     failed = 0
+    errors = []
 
     for group_id in groups:
         try:
             await context.bot.send_message(chat_id=group_id, text=text)
             success += 1
-        except Exception:
+        except Exception as e:
             failed += 1
+            errors.append(f"Группа {group_id}: {str(e)}")
+
+    error_text = "\n".join(errors) if errors else ""
 
     await update.message.reply_text(
-        f"Рассылка отправлена ✅\nОтправлено: {success}\nОшибок: {failed}",
+        f"Рассылка отправлена ✅\nОтправлено: {success}\nОшибок: {failed}\n\n{error_text}",
         reply_markup=main_keyboard()
     )
 
@@ -270,18 +278,6 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text("🏓 Pong\nБот работает")
-
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-
-    text = (
-        f"📊 Статистика\n\n"
-        f"Групп в базе: {len(groups)}\n"
-        f"Админов: {len(ADMIN_IDS)}"
-    )
-
-    await update.message.reply_text(text)
 
 async def change_balance(update: Update, context: ContextTypes.DEFAULT_TYPE, sign: int):
     if update.effective_chat.type not in ["group", "supergroup"]:

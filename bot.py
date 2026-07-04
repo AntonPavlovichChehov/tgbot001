@@ -167,6 +167,44 @@ async def remove_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Этой группы нет в списке рассылки.")
 
 
+async def delete_group_by_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Удалить группу по ID из рассылки (команда /delgroup)"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("У тебя нет доступа.")
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "Использование: /delgroup <ID группы>\n\n"
+            "Пример: /delgroup -1001234567890"
+        )
+        return
+
+    try:
+        group_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ Неверный формат ID. ID должен быть числом.")
+        return
+
+    if group_id not in groups:
+        await update.message.reply_text(f"❌ Группа с ID {group_id} не найдена в рассылке.")
+        return
+
+    # Получить название группы
+    chat_title = await get_chat_info(context, group_id)
+
+    # Удалить группу только из списка рассылки
+    groups.discard(group_id)
+    save_groups(groups)
+
+    await update.message.reply_text(
+        f"✅ Группа удалена из рассылки\n\n"
+        f"📌 {chat_title}\n"
+        f"🔢 ID: {group_id}\n"
+        f"💰 Баланс сохранён"
+    )
+
+
 async def check_group_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.my_chat_member:
         return
@@ -229,13 +267,12 @@ async def send_broadcast(context: ContextTypes.DEFAULT_TYPE, user_id: int, from_
             
             # Проверка на ошибку миграции (группа → супергруппа)
             if "CHANNEL_PRIVATE" in error_msg or "Chat not found" in error_msg:
-                # Пробуем найти новый ID супергруппы через кэш
                 groups_to_remove.append(group_id)
                 errors.append(f"❌ {chat_title} ({group_id}): Группа больше не доступна или изменила ID")
             else:
                 errors.append(f"❌ {chat_title} ({group_id}): {error_msg}")
 
-    # Удалить недоступные группы
+    # Удалить недоступные группы только из рассылки
     for group_id in groups_to_remove:
         groups.discard(group_id)
     
@@ -320,7 +357,7 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 errors.append(f"❌ {chat_title} ({group_id}): {error_msg}")
 
-    # Удалить недоступные группы
+    # Удалить недоступные группы только из рассылки
     for group_id in groups_to_remove:
         groups.discard(group_id)
     
@@ -478,6 +515,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addgroup", add_group))
     app.add_handler(CommandHandler("removegroup", remove_group))
+    app.add_handler(CommandHandler("delgroup", delete_group_by_id))
     app.add_handler(CommandHandler("groups", groups_count))
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CommandHandler("ping", ping))

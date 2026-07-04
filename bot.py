@@ -83,6 +83,34 @@ def main_keyboard():
     )
 
 
+async def get_chat_info(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
+    """Получить информацию о чате (название)"""
+    try:
+        chat = await context.bot.get_chat(chat_id)
+        return chat.title or f"Группа {chat_id}"
+    except Exception:
+        return f"Группа {chat_id}"
+
+
+async def migrate_old_chat_id(old_id: int, new_id: int):
+    """Миграция данных при изменении ID группы (группа → супергруппа)"""
+    global groups, balances
+    
+    # Обновить groups.json
+    if old_id in groups:
+        groups.remove(old_id)
+        groups.add(new_id)
+        save_groups(groups)
+    
+    # Обновить balance.json
+    old_key = str(old_id)
+    new_key = str(new_id)
+    
+    if old_key in balances:
+        balances[new_key] = balances.pop(old_key)
+        save_balance(balances)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user_id = update.effective_user.id
@@ -171,8 +199,9 @@ async def send_broadcast(context: ContextTypes.DEFAULT_TYPE, user_id: int, from_
     success = 0
     failed = 0
     errors = []
+    groups_to_remove = []
 
-    for group_id in groups:
+    for group_id in list(groups):
         try:
             if text:
                 final_text = text
@@ -195,7 +224,23 @@ async def send_broadcast(context: ContextTypes.DEFAULT_TYPE, user_id: int, from_
 
         except Exception as e:
             failed += 1
-            errors.append(f"Группа {group_id}: {str(e)}")
+            error_msg = str(e)
+            chat_title = await get_chat_info(context, group_id)
+            
+            # Проверка на ошибку миграции (группа → супергруппа)
+            if "CHANNEL_PRIVATE" in error_msg or "Chat not found" in error_msg:
+                # Пробуем найти новый ID супергруппы через кэш
+                groups_to_remove.append(group_id)
+                errors.append(f"❌ {chat_title} ({group_id}): Группа больше не доступна или изменила ID")
+            else:
+                errors.append(f"❌ {chat_title} ({group_id}): {error_msg}")
+
+    # Удалить недоступные группы
+    for group_id in groups_to_remove:
+        groups.discard(group_id)
+    
+    if groups_to_remove:
+        save_groups(groups)
 
     error_text = "\n".join(errors) if errors else ""
     
@@ -257,14 +302,30 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     success = 0
     failed = 0
     errors = []
+    groups_to_remove = []
 
-    for group_id in groups:
+    for group_id in list(groups):
         try:
             await context.bot.send_message(chat_id=group_id, text=text)
             success += 1
         except Exception as e:
             failed += 1
-            errors.append(f"Группа {group_id}: {str(e)}")
+            error_msg = str(e)
+            chat_title = await get_chat_info(context, group_id)
+            
+            # Проверка на ошибку миграции (группа → супергруппа)
+            if "CHANNEL_PRIVATE" in error_msg or "Chat not found" in error_msg:
+                groups_to_remove.append(group_id)
+                errors.append(f"❌ {chat_title} ({group_id}): Группа больше не доступна или изменила ID")
+            else:
+                errors.append(f"❌ {chat_title} ({group_id}): {error_msg}")
+
+    # Удалить недоступные группы
+    for group_id in groups_to_remove:
+        groups.discard(group_id)
+    
+    if groups_to_remove:
+        save_groups(groups)
 
     error_text = "\n".join(errors) if errors else ""
 
